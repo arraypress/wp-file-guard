@@ -1,0 +1,44 @@
+{
+  "name": "arraypress/wp-file-guard",
+  "version": "1.0.0",
+  "description": "Dead simple file and directory protection for WordPress plugins. Handles .htaccess rules, index files, and protection verification.",
+  "type": "library",
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://github.com/arraypress/wp-file-guard",
+  "authors": [
+    {
+      "name": "David Sherlock",
+      "homepage": "https://arraypress.com/"
+    }
+  ],
+  "require": {
+    "php": ">=7.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "ArrayPress\\FileGuard\\": "src/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "preferred-install": "dist"
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "support": {
+    "issues": "https://github.com/arraypress/wp-file-guard/issues",
+    "source": "https://github.com/arraypress/wp-file-guard"
+  },
+  "keywords": [
+    "wordpress",
+    "wp",
+    "file-protection",
+    "upload-protection",
+    "htaccess",
+    "file-security",
+    "directory-protection",
+    "download-protection",
+    "arraypress"
+  ]
+}
