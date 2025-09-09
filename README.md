@@ -143,7 +143,7 @@ $protector->setup_upload_filter( function () {
 ## Complete Example
 
 ```php
-use ArrayPress\WP\FileGuard\Protector;
+use ArrayPress\FileGuard\Protector;
 
 class DownloadPlugin {
 	private Protector $protector;
