@@ -83,8 +83,8 @@ class Protector {
 		// Create directory if it doesn't exist
 		wp_mkdir_p( $upload_path );
 
-		// Create protection files
-		$created = $this->create_protection_files( $upload_path );
+		// Create protection files with force parameter
+		$created = $this->create_protection_files( $upload_path, $force );
 
 		// Protect subdirectories if they exist
 		if ( $this->use_dated_folders ) {
@@ -101,11 +101,12 @@ class Protector {
 	/**
 	 * Create protection files in a directory.
 	 *
-	 * @param string $path Directory path.
+	 * @param string $path  Directory path.
+	 * @param bool   $force Force overwrite of .htaccess even if it exists.
 	 *
 	 * @return bool True if all files created successfully.
 	 */
-	private function create_protection_files( string $path ): bool {
+	private function create_protection_files( string $path, bool $force = false ): bool {
 		$files = [
 			'index.php'  => '<?php // Silence is golden.',
 			'index.html' => '',
@@ -117,7 +118,11 @@ class Protector {
 		foreach ( $files as $filename => $content ) {
 			$filepath = trailingslashit( $path ) . $filename;
 
-			if ( ! file_exists( $filepath ) ) {
+			// For .htaccess, always overwrite when forcing to ensure rules are current
+			// For other files, only create if they don't exist
+			$should_write = ! file_exists( $filepath ) || ( $force && $filename === '.htaccess' );
+
+			if ( $should_write ) {
 				$result = file_put_contents( $filepath, $content );
 				if ( false === $result ) {
 					$success = false;
@@ -158,7 +163,8 @@ class Protector {
 	 * @return string
 	 */
 	private function get_htaccess_rules(): string {
-		$rules = "# Disable directory browsing\n";
+		$rules = "# FileGuard Protection Rules - " . ucfirst( $this->prefix ) . "\n";
+		$rules .= "# Disable directory browsing\n";
 		$rules .= "Options -Indexes\n\n";
 
 		// Apache 2.4+ (current standard)
