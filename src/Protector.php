@@ -158,17 +158,38 @@ class Protector {
 	 * @return string
 	 */
 	private function get_htaccess_rules(): string {
-		$rules = "Options -Indexes\n";
-		$rules .= "deny from all\n";
+		$rules = "# Disable directory browsing\n";
+		$rules .= "Options -Indexes\n\n";
 
-		// Allow specific file types if configured
+		// Apache 2.4+ (current standard)
+		$rules .= "# Apache 2.4+\n";
+		$rules .= "<IfModule mod_authz_core.c>\n";
+		$rules .= "    Require all denied\n";
+
 		if ( ! empty( $this->allowed_extensions ) ) {
 			$extensions = implode( '|', $this->allowed_extensions );
-			$rules      .= "<FilesMatch '\.(" . $extensions . ")$'>\n";
-			$rules      .= "    Order Allow,Deny\n";
-			$rules      .= "    Allow from all\n";
-			$rules      .= "</FilesMatch>\n";
+			$rules      .= "    <FilesMatch '\.(" . $extensions . ")$'>\n";
+			$rules      .= "        Require all granted\n";
+			$rules      .= "    </FilesMatch>\n";
 		}
+
+		$rules .= "</IfModule>\n\n";
+
+		// Apache 2.2 fallback
+		$rules .= "# Apache 2.2 fallback\n";
+		$rules .= "<IfModule !mod_authz_core.c>\n";
+		$rules .= "    Order Deny,Allow\n";
+		$rules .= "    Deny from all\n";
+
+		if ( ! empty( $this->allowed_extensions ) ) {
+			$extensions = implode( '|', $this->allowed_extensions );
+			$rules      .= "    <FilesMatch '\.(" . $extensions . ")$'>\n";
+			$rules      .= "        Order Allow,Deny\n";
+			$rules      .= "        Allow from all\n";
+			$rules      .= "    </FilesMatch>\n";
+		}
+
+		$rules .= "</IfModule>\n";
 
 		return apply_filters( $this->prefix . '_htaccess_rules', $rules );
 	}
@@ -242,26 +263,44 @@ class Protector {
 			return false;
 		}
 
-		// Test with a temporary file
+		// Test with a temporary file that shouldn't be accessible
 		$test_file = $this->prefix . '-test-' . wp_generate_password( 8, false ) . '.txt';
 		$test_path = trailingslashit( $upload_path ) . $test_file;
 
 		// Create test file
-		file_put_contents( $test_path, 'test' );
+		file_put_contents( $test_path, 'This file should not be accessible' );
 
 		// Try to access it
 		$test_url = trailingslashit( $this->get_upload_url() ) . $test_file;
+
+		// Use more robust request with proper headers
 		$response = wp_remote_get( $test_url, [
-			'timeout'     => 3,
+			'timeout'     => 5,
 			'sslverify'   => false,
-			'redirection' => 0
+			'redirection' => 0,
+			'headers'     => [
+				'Cache-Control' => 'no-cache',
+			]
 		] );
 
-		$code      = wp_remote_retrieve_response_code( $response );
-		$protected = ( 200 !== $code );
+		$code = wp_remote_retrieve_response_code( $response );
+
+		// File should return 403 Forbidden or 401 Unauthorized
+		// Some servers return 404 when denying access
+		$protected = ! in_array( $code, [ 200, 201, 202, 203, 204, 205, 206 ], true );
 
 		// Clean up
 		@unlink( $test_path );
+
+		// Log for debugging
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( sprintf(
+				'FileGuard protection test for %s: HTTP %d = %s',
+				$this->prefix,
+				$code,
+				$protected ? 'protected' : 'NOT protected'
+			) );
+		}
 
 		// Cache result
 		set_transient( $transient_key, $protected ? 1 : 0, 12 * HOUR_IN_SECONDS );
